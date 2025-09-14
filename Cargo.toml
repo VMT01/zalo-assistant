@@ -1,0 +1,12 @@
+[package]
+name = "zalo-the-assistant"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+dotenvy = "^0.15"
+tokio = { version = "^1.47", features = ["rt", "rt-multi-thread", "macros"] }
+zalo-bot = { path = "./zalo-bot", version = "^0.1" }
+
+[workspace]
+members = ["zalo-bot"]

@@ -1,5 +1,6 @@
-use clap::Parser;
 use std::time::Duration;
+
+use clap::Parser;
 
 use crate::request::types::RequestResult;
 use crate::request::HttpRequest;
@@ -24,23 +25,7 @@ pub(crate) struct HttpRequestBuilder {
     ///
     /// Defaults to `10`.
     #[clap(long, default_value_t = 10)]
-    timeout: u64,
-
-    /// The maximum amount of time (in seconds) to wait for a response from Zalo
-    /// Bot's server. This value is used unless a different value is passed to
-    /// [do_request].
-    ///
-    /// Defaults to `5`.
-    #[clap(long, default_value_t = 5)]
-    read_timeout: u64,
-
-    /// The maximum amount of time (in seconds) to wait for a connection attempt
-    /// to a server to succeed. This value is used unless a different value is passed
-    /// to [do_request].
-    ///
-    /// Defaults to `5`.
-    #[clap(long, default_value_t = 5)]
-    connect_timeout: u64,
+    pub(super) timeout: u64,
 }
 
 fn default_user_agent() -> String {
@@ -58,7 +43,7 @@ impl Default for HttpRequestBuilder {
 }
 
 impl HttpRequestBuilder {
-    pub(crate) fn build(&self) -> RequestResult<HttpRequest> {
+    pub(crate) fn build(self) -> RequestResult<HttpRequest> {
         let mut cb = reqwest::ClientBuilder::new();
 
         cb = cb.user_agent(self.user_agent.clone());
@@ -78,11 +63,12 @@ impl HttpRequestBuilder {
         }
 
         cb = cb.timeout(Duration::from_secs(self.timeout));
-        cb = cb.read_timeout(Duration::from_secs(self.read_timeout));
-        cb = cb.connect_timeout(Duration::from_secs(self.connect_timeout));
 
         let client = cb.build()?;
 
-        Ok(HttpRequest { client })
+        Ok(HttpRequest {
+            config: self,
+            client,
+        })
     }
 }

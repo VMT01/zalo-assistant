@@ -1,11 +1,14 @@
-use reqwest::Body;
-use serde::de::DeserializeOwned;
 use std::fmt::Debug;
+use std::time::Duration;
+
+use reqwest::Body;
+use serde::Serialize;
+use serde::de::DeserializeOwned;
 
 use crate::request::http_request_builder::HttpRequestBuilder;
+use crate::request::types::RequestResult;
 use crate::request::types::errors::RequestError;
 use crate::request::types::response_dto::ResponseDTO;
-use crate::request::types::RequestResult;
 
 mod http_request_builder;
 
@@ -13,6 +16,7 @@ pub(crate) mod types;
 
 #[derive(Debug)]
 pub(crate) struct HttpRequest {
+    config: HttpRequestBuilder,
     client: reqwest::Client,
 }
 
@@ -21,22 +25,32 @@ impl HttpRequest {
         HttpRequestBuilder::default()
     }
 
-    pub(crate) async fn post<T>(
+    pub(crate) fn get_timeout(&self) -> u64 {
+        self.config.timeout
+    }
+
+    pub(crate) async fn post<U, T>(
         &self,
         url: reqwest::Url,
-        data: Option<serde_json::Value>,
+        data: Option<U>,
+        timeout: Option<Duration>,
     ) -> RequestResult<T>
     where
+        U: Serialize + Debug,
         T: DeserializeOwned + Debug,
     {
-        let body = data.map_or(Body::default(), |data| data.to_string().into());
-        let response = self
-            .client
-            .post(url)
-            .body(body)
-            .send()
-            .await?
-            .error_for_status()?;
+        let body = match data {
+            Some(data) => match serde_json::to_vec(&data) {
+                Ok(serialized) => Body::from(serialized),
+                Err(_) => Body::default(),
+            },
+            None => Body::default(),
+        };
+        let mut request = self.client.post(url).body(body);
+        if let Some(timeout) = timeout {
+            request = request.timeout(timeout);
+        }
+        let response = request.send().await?.error_for_status()?;
 
         let data = response.json::<ResponseDTO<T>>().await?;
         if !data.ok {
